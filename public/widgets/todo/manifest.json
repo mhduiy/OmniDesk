@@ -1,0 +1,8 @@
+{
+  "id": "todo",
+  "name": "便签",
+  "version": "1.0.0",
+  "entry": "index.html",
+  "sizes": ["2x2", "2x3", "2x4"],
+  "defaultSize": "2x4"
+}

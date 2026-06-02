@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Countdown</title>
+  <script src="/widget-sdk.js"></script>
+  <style>
+    body {
+      margin: 0; padding: 0; height: 100vh;
+      font-family: system-ui, -apple-system, sans-serif;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      color: rgba(255,255,255,0.9);
+      background: rgba(0, 0, 0, 0.15);
+      -webkit-font-smoothing: antialiased;
+    }
+    .event-name {
+      font-size: 0.9rem;
+      font-weight: 500;
+      letter-spacing: 2px;
+      color: rgba(255,255,255,0.7);
+      margin-bottom: 8px;
+    }
+    .days {
+      font-size: 4rem;
+      font-weight: 800;
+      line-height: 1;
+      text-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+    .unit {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-left: 4px;
+      color: #ff8787;
+    }
+    .target-date {
+      font-size: 0.75rem;
+      margin-top: 12px;
+      color: rgba(255,255,255,0.4);
+    }
+  </style>
+</head>
+<body>
+  <div class="event-name" id="event-name">距离发工资还有</div>
+  <div>
+    <span class="days" id="days-left">--</span><span class="unit">天</span>
+  </div>
+  <div class="target-date" id="target-date">目标日: ----/--/--</div>
+
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const instanceId = urlParams.get('instanceId') || 'countdown_default';
+    const configFile = `${instanceId}.json`;
+    
+    // 默认配置
+    let config = { event: '发工资', date: '2026-06-15' }; 
+
+    async function loadConfig() {
+      try {
+        const data = await window.__widgetBridge.invoke('widget_read_file', { filename: configFile });
+        if (data) config = JSON.parse(data);
+      } catch (e) {
+        // 如果文件不存在，写入默认配置
+        window.__widgetBridge.invoke('widget_write_file', { filename: configFile, content: JSON.stringify(config) });
+      }
+      render();
+    }
+
+    function render() {
+      document.getElementById('event-name').innerText = `距离${config.event}还有`;
+      document.getElementById('target-date').innerText = `目标日: ${config.date}`;
+      
+      const target = new Date(config.date);
+      const now = new Date();
+      target.setHours(0,0,0,0);
+      now.setHours(0,0,0,0);
+      
+      const diffTime = target - now;
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      
+      document.getElementById('days-left').innerText = diffDays > 0 ? diffDays : 0;
+    }
+
+    // 每分钟检查一次跨天
+    setInterval(() => {
+      const now = new Date();
+      if (now.getHours() === 0 && now.getMinutes() === 0) {
+        render();
+      }
+    }, 60000);
+
+    loadConfig();
+  </script>
+</body>
+</html>

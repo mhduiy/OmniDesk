@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Daily Prompt</title>
+  <script src="/widget-sdk.js"></script>
+  <style>
+    body {
+      margin: 0; padding: 16px; height: 100vh;
+      box-sizing: border-box;
+      font-family: system-ui, -apple-system, sans-serif;
+      background: rgba(0, 0, 0, 0.15);
+      color: rgba(255,255,255,0.9);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      -webkit-font-smoothing: antialiased;
+    }
+    .header {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: #a78bfa;
+      letter-spacing: 1px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .content {
+      font-size: 0.95rem;
+      line-height: 1.5;
+      font-style: italic;
+      margin: auto 0;
+      display: -webkit-box;
+      -webkit-line-clamp: 5;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .footer {
+      display: flex;
+      justify-content: flex-end;
+    }
+    button {
+      background: rgba(255,255,255,0.1);
+      border: none;
+      color: #fff;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    button:hover { background: rgba(255,255,255,0.2); }
+    button:active { transform: scale(0.95); }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <span>💡 每日提示词</span>
+  </div>
+  <div class="content" id="prompt-text">
+    "You are a Senior Systems Engineer. I want you to review the following architecture diagram and point out potential single points of failure, scalability bottlenecks, and security risks..."
+  </div>
+  <div class="footer">
+    <button id="copy-btn">复制</button>
+  </div>
+
+  <script>
+    const prompts = [
+      "You are a Senior Systems Engineer. Review the following architecture diagram and point out potential single points of failure...",
+      "Act as an expert UX researcher. I am designing a new dashboard. Ask me 5 clarifying questions before writing the user interview script.",
+      "Explain [concept] as if I were 5 years old, using only analogies related to cooking.",
+      "Rewrite this email to be more professional, assertive, but not aggressive. Keep it under 100 words."
+    ];
+    
+    // 随机选一个
+    const todayPrompt = prompts[new Date().getDate() % prompts.length];
+    const textElement = document.getElementById('prompt-text');
+    textElement.innerText = todayPrompt;
+
+    document.getElementById('copy-btn').addEventListener('click', () => {
+      navigator.clipboard.writeText(todayPrompt).then(() => {
+        const btn = document.getElementById('copy-btn');
+        btn.innerText = '已复制!';
+        setTimeout(() => btn.innerText = '复制', 2000);
+      });
+    });
+  </script>
+</body>
+</html>

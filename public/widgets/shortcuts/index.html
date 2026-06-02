@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Shortcuts</title>
+  <script src="/widget-sdk.js"></script>
+  <style>
+    body {
+      margin: 0; padding: 12px; height: 100vh;
+      box-sizing: border-box;
+      font-family: system-ui, -apple-system, sans-serif;
+      background: rgba(0, 0, 0, 0.15);
+      color: #fff;
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      grid-template-rows: repeat(2, 1fr);
+      gap: 12px;
+      -webkit-font-smoothing: antialiased;
+    }
+    .shortcut {
+      background: rgba(255,255,255,0.08);
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .shortcut:hover {
+      background: rgba(255,255,255,0.15);
+      transform: translateY(-2px);
+    }
+    .shortcut:active {
+      transform: scale(0.95);
+    }
+    .icon { font-size: 1.8rem; margin-bottom: 6px; }
+    .label { font-size: 0.75rem; font-weight: 500; letter-spacing: 0.5px; }
+  </style>
+</head>
+<body>
+  <div class="shortcut" data-url="https://github.com">
+    <div class="icon">🐙</div>
+    <div class="label">GitHub</div>
+  </div>
+  <div class="shortcut" data-url="https://youtube.com">
+    <div class="icon">▶️</div>
+    <div class="label">YouTube</div>
+  </div>
+  <div class="shortcut" data-url="https://kimi.moonshot.cn/">
+    <div class="icon">🤖</div>
+    <div class="label">Kimi</div>
+  </div>
+  <div class="shortcut" data-url="https://translate.google.com">
+    <div class="icon">🌐</div>
+    <div class="label">翻译</div>
+  </div>
+
+  <script>
+    document.querySelectorAll('.shortcut').forEach(el => {
+      el.addEventListener('click', () => {
+        const url = el.getAttribute('data-url');
+        window.__widgetBridge.invoke('open_url', { url }).catch(err => {
+          console.error("Failed to open URL", err);
+        });
+      });
+    });
+  </script>
+</body>
+</html>

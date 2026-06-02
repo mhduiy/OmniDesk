@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Clock Widget</title>
+  <script src="/widget-sdk.js"></script>
+  <style>
+    body {
+      margin: 0;
+      padding: 12px;
+      color: white;
+      font-family: system-ui, -apple-system, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      height: 100vh;
+      box-sizing: border-box;
+      overflow: hidden;
+      background: transparent;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+    .header {
+      width: 100%;
+      flex-grow: 1; /* 让时间区域自动霸占顶部所有剩余空间 */
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .time { 
+      font-size: 3.5rem; 
+      font-weight: 800; 
+      letter-spacing: -2px;
+      text-shadow: 0 4px 12px rgba(0,0,0,0.2); 
+      line-height: 1;
+    }
+    .calendar-container {
+      width: 100%;
+      flex-grow: 0; 
+      flex-shrink: 0;
+      background: rgba(0, 0, 0, 0.15);
+      border-radius: 12px;
+      padding: 8px; /* 进一步压缩内边距 */
+      box-shadow: inset 0 1px 4px rgba(0,0,0,0.1);
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+    }
+    .month-title {
+      flex-shrink: 0;
+      font-size: 0.8rem; /* 缩小标题字体 */
+      font-weight: bold;
+      color: rgba(255,255,255,0.9);
+      margin-bottom: 4px; /* 压缩下边距 */
+      text-align: center;
+      letter-spacing: 1px;
+    }
+    .calendar-header {
+      flex-shrink: 0;
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      text-align: center;
+      font-size: 0.6rem; /* 缩小星期的字体 */
+      font-weight: bold;
+      color: rgba(255,255,255,0.5);
+      margin-bottom: 4px; /* 压缩下边距 */
+    }
+    .calendar-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      grid-template-rows: repeat(6, auto); 
+      gap: 2px; /* 把间距重新压缩到 2px */
+      text-align: center;
+    }
+    .day {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      border-radius: 6px;
+      color: rgba(255,255,255,0.9);
+      padding: 2px 0; /* 压缩内部 padding */
+    }
+    .day-num {
+      height: 14px; /* 缩小数字高度 */
+      line-height: 14px;
+      font-size: 0.75rem; /* 缩小数字字号 */
+      font-weight: 500;
+    }
+    .day-holiday {
+      height: 10px; /* 缩小节日占位高度 */
+      line-height: 10px;
+      font-size: 0.55rem; /* 缩小节日字号 */
+      font-weight: 600;
+      color: #ff8787; 
+      white-space: nowrap;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.6); 
+      margin-top: 1px; /* 压缩上下距离 */
+    }
+    .day.empty { color: transparent; pointer-events: none; }
+    .day.today {
+      background: #3b82f6;
+      color: white;
+      box-shadow: 0 2px 6px rgba(59, 130, 246, 0.4);
+    }
+    .day.today .day-num {
+      font-weight: bold;
+    }
+    .day.today .day-holiday {
+      color: rgba(255,255,255,0.9);
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="time" id="time">00:00</div>
+  </div>
+
+  <div class="calendar-container">
+    <div class="month-title" id="month-title">加载中...</div>
+    <div class="calendar-header">
+      <div>日</div><div>一</div><div>二</div><div>三</div><div>四</div><div>五</div><div>六</div>
+    </div>
+    <div class="calendar-grid" id="calendar">
+      <!-- JS 动态填充 -->
+    </div>
+  </div>
+
+  <script>
+    const HOLIDAYS = {
+      "01-01": "元旦", "02-14": "情人", "03-08": "妇女", "05-01": "劳动",
+      "06-01": "儿童", "10-01": "国庆", "12-25": "圣诞",
+      "2025-01-28": "除夕", "2025-01-29": "春节", "2025-02-12": "元宵", 
+      "2025-04-04": "清明", "2025-05-31": "端午", "2025-10-06": "中秋",
+      "2026-02-16": "除夕", "2026-02-17": "春节", "2026-03-03": "元宵",
+      "2026-04-05": "清明", "2026-06-19": "端午", "2026-09-25": "中秋",
+      "2027-02-05": "除夕", "2027-02-06": "春节", "2027-02-20": "元宵",
+      "2027-04-05": "清明", "2027-06-09": "端午", "2027-09-15": "中秋"
+    };
+
+    function getHoliday(year, month, day) {
+      const mmdd = `${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      const yyyymmdd = `${year}-${mmdd}`;
+      return HOLIDAYS[yyyymmdd] || HOLIDAYS[mmdd] || '';
+    }
+
+    function renderCalendar() {
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = now.getMonth();
+      const today = now.getDate();
+      
+      document.getElementById('month-title').innerText = `${year}年 ${month + 1}月`;
+      
+      const firstDay = new Date(year, month, 1).getDay();
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      
+      const grid = document.getElementById('calendar');
+      grid.innerHTML = '';
+      
+      for (let i = 0; i < firstDay; i++) {
+        const empty = document.createElement('div');
+        empty.className = 'day empty';
+        grid.appendChild(empty);
+      }
+      
+      for (let i = 1; i <= daysInMonth; i++) {
+        const cell = document.createElement('div');
+        cell.className = `day ${i === today ? 'today' : ''}`;
+        
+        const holiday = getHoliday(year, month + 1, i);
+        // 关键逻辑：无论有没有节假日，都渲染 day-holiday 占位符，保证所有格子内部结构完全一致！
+        cell.innerHTML = `
+          <div class="day-num">${i}</div>
+          <div class="day-holiday">${holiday}</div>
+        `;
+        
+        grid.appendChild(cell);
+      }
+
+      const totalCells = firstDay + daysInMonth;
+      const remaining = 42 - totalCells;
+      for (let i = 0; i < remaining; i++) {
+        const empty = document.createElement('div');
+        empty.className = 'day empty';
+        grid.appendChild(empty);
+      }
+    }
+
+    function updateTime() {
+      const now = new Date();
+      document.getElementById('time').innerText = now.toLocaleTimeString('zh-CN', { hour12: false });
+      
+      if (now.getHours() === 0 && now.getMinutes() === 0 && now.getSeconds() === 0) {
+        renderCalendar();
+      }
+    }
+    
+    renderCalendar();
+    updateTime();
+    setInterval(updateTime, 1000);
+  </script>
+</body>
+</html>

@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>AI News</title>
+  <script src="/widget-sdk.js"></script>
+  <style>
+    body {
+      margin: 0; padding: 16px; height: 100vh;
+      box-sizing: border-box;
+      font-family: system-ui, -apple-system, sans-serif;
+      background: rgba(0, 0, 0, 0.2);
+      color: rgba(255,255,255,0.9);
+      display: flex; flex-direction: column;
+      -webkit-font-smoothing: antialiased;
+    }
+    .header { font-size: 0.9rem; font-weight: 600; letter-spacing: 0.5px; color: #60a5fa; margin-bottom: 12px; flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; }
+    .news-list { display: flex; flex-direction: column; gap: 12px; overflow-y: auto; flex-grow: 1; padding-right: 4px; }
+    .news-list::-webkit-scrollbar { width: 4px; }
+    .news-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+    
+    .news-item {
+      background: rgba(255,255,255,0.06);
+      padding: 12px;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.2s;
+      border-left: 3px solid transparent;
+      display: flex;
+      gap: 12px;
+      align-items: stretch;
+    }
+    .news-item:hover { background: rgba(255,255,255,0.12); border-left-color: #3b82f6; transform: translateX(2px); }
+    
+    .news-content {
+      display: flex;
+      flex-direction: column;
+      flex-grow: 1;
+      min-width: 0;
+    }
+    
+    .meta-row { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; font-size: 0.75rem; color: rgba(255,255,255,0.5); gap: 8px; }
+    .source { font-weight: 400; color: #93c5fd; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; letter-spacing: 0.5px; }
+    .time { font-family: monospace; white-space: nowrap; flex-shrink: 0; }
+    
+    .title { font-size: 0.9rem; font-weight: 400; letter-spacing: 0.5px; line-height: 1.5; margin-bottom: 6px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; color: #fff; }
+    .summary { font-size: 0.75rem; color: rgba(255,255,255,0.6); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+    
+    .news-thumb {
+      flex-shrink: 0;
+      width: 80px;
+      height: 80px;
+      border-radius: 6px;
+      object-fit: cover;
+      background: rgba(0,0,0,0.3);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+    
+    .status { font-size: 0.75rem; color: rgba(255,255,255,0.4); text-align: center; margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <span>📰 AIHot 行业精选</span>
+    <span id="update-time" style="font-size: 0.7rem; color: rgba(255,255,255,0.4); font-weight: 400;">--:--</span>
+  </div>
+  
+  <div class="news-list" id="news-list">
+    <div class="status" style="margin-top:40px;">拉取精选资讯中...</div>
+  </div>
+
+  <script>
+    async function fetchNews() {
+      const listEl = document.getElementById('news-list');
+      try {
+        const html = await window.__widgetBridge.invoke('fetch_proxy', { 
+          url: 'https://aihot.virxact.com/',
+          token: null
+        });
+
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        const items = doc.querySelectorAll('.timeline-item');
+        
+        if (!items || items.length === 0) {
+          throw new Error("HTML 解析失败或页面结构变化");
+        }
+
+        listEl.innerHTML = '';
+        
+        const maxItems = Math.min(items.length, 15);
+        for (let i = 0; i < maxItems; i++) {
+          const item = items[i];
+          
+          const timeEl = item.querySelector('.timeline-time');
+          const sourceEl = item.querySelector('.timeline-source') || item.querySelector('.uc-handle');
+          const titleEl = item.querySelector('.timeline-title') || item.querySelector('.uc-body-p');
+          const summaryEl = item.querySelector('.timeline-summary') || item.querySelector('.uc-quoted') || item.querySelector('.timeline-reason');
+          const linkEl = item.querySelector('.timeline-title') || item.querySelector('a.uc-body') || item.querySelector('a');
+          const imgEl = item.querySelector('img.x-tweet-media-img') || item.querySelector('img');
+
+          const time = timeEl ? timeEl.innerText.trim() : '';
+          const source = sourceEl ? sourceEl.innerText.trim().replace(/^@/, '') : 'News';
+          const title = titleEl ? titleEl.innerText.trim() : '';
+          const summary = summaryEl ? summaryEl.innerText.trim() : '';
+          
+          let link = linkEl ? linkEl.getAttribute('href') : '';
+          if (link && link.startsWith('/')) {
+            link = 'https://aihot.virxact.com' + link;
+          }
+          
+          let imgSrc = imgEl ? imgEl.getAttribute('src') : '';
+          // Avoid avatar images as thumbnails if possible, check if it's a real cover
+          if (imgSrc && imgSrc.includes('avatar')) imgSrc = '';
+          if (imgSrc && imgSrc.startsWith('/api/img-proxy')) {
+            imgSrc = 'https://aihot.virxact.com' + imgSrc;
+          }
+
+          if (!title) continue;
+
+          const div = document.createElement('div');
+          div.className = 'news-item';
+          if (link) {
+            div.onclick = () => window.__widgetBridge.invoke('open_url', { url: link });
+          }
+
+          div.innerHTML = `
+            <div class="news-content">
+              <div class="meta-row">
+                <span class="source">${source}</span>
+                <span class="time">${time}</span>
+              </div>
+              <div class="title">${title}</div>
+              ${summary ? `<div class="summary">${summary}</div>` : ''}
+            </div>
+            ${imgSrc ? `<img class="news-thumb" src="${imgSrc}" loading="lazy" />` : ''}
+          `;
+
+          listEl.appendChild(div);
+        }
+
+        const now = new Date();
+        document.getElementById('update-time').innerText = `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}`;
+        
+      } catch (e) {
+        listEl.innerHTML = `<div class="status" style="color:#ef4444; margin-top:40px;">加载失败: ${e.message}</div>`;
+      }
+    }
+
+    fetchNews();
+    setInterval(fetchNews, 30 * 60 * 1000);
+  </script>
+</body>
+</html>

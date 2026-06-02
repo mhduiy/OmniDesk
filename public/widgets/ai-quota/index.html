@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>AI Quota</title>
+  <script src="/widget-sdk.js"></script>
+  <style>
+    body {
+      margin: 0; padding: 16px; height: 100vh;
+      box-sizing: border-box;
+      font-family: system-ui, -apple-system, sans-serif;
+      background: rgba(0, 0, 0, 0.15);
+      color: rgba(255,255,255,0.9);
+      display: flex; flex-direction: column; justify-content: center;
+      -webkit-font-smoothing: antialiased;
+    }
+    .title { font-size: 0.8rem; color: rgba(255,255,255,0.6); margin-bottom: 4px; }
+    .balance { font-size: 2.5rem; font-weight: 800; color: #10b981; }
+    .status { font-size: 0.7rem; color: rgba(255,255,255,0.4); margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <div class="title">DeepSeek 余额</div>
+  <div class="balance" id="balance-value">¥--.--</div>
+  <div class="status" id="status-text">Loading...</div>
+
+  <script>
+    async function fetchQuota() {
+      try {
+        // 由于没有真实 Token，这里做个演示逻辑
+        // 实际上可以通过 window.__widgetBridge.invoke('fetch_proxy', { url: '...' }) 发起跨域请求
+        const res = await window.__widgetBridge.invoke('fetch_proxy', { url: 'https://api.github.com/zen' });
+        // 假装解析成功
+        document.getElementById('balance-value').innerText = '¥12.50';
+        document.getElementById('status-text').innerText = '已更新: ' + new Date().toLocaleTimeString();
+      } catch (e) {
+        document.getElementById('balance-value').innerText = 'Error';
+        document.getElementById('status-text').innerText = 'Failed to fetch API';
+      }
+    }
+    fetchQuota();
+    setInterval(fetchQuota, 1000 * 60 * 30); // 30 min
+  </script>
+</body>
+</html>

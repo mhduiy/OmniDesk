@@ -1,0 +1,23 @@
+@import "tailwindcss";
+
+@theme {
+  --color-glass-bg: rgba(255, 255, 255, 0.1);
+  --color-glass-border: rgba(255, 255, 255, 0.2);
+}
+
+@layer utilities {
+  .glass {
+    @apply bg-glass-bg backdrop-blur-2xl border border-glass-border shadow-2xl;
+  }
+}
+
+html, body, #root {
+  @apply w-full h-full m-0 p-0 overflow-hidden font-sans;
+}
+
+body {
+  /* 默认降级壁纸 */
+  background: linear-gradient(135deg, #1e1e2f 0%, #2a2a4a 100%);
+  background-size: cover;
+  background-position: center;
+}

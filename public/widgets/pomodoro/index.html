@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Pomodoro</title>
+  <script src="/widget-sdk.js"></script>
+  <style>
+    body {
+      margin: 0; padding: 16px; height: 100vh;
+      box-sizing: border-box;
+      font-family: system-ui, -apple-system, sans-serif;
+      background: rgba(0, 0, 0, 0.15);
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      -webkit-font-smoothing: antialiased;
+    }
+    .title {
+      font-size: 0.8rem;
+      font-weight: 600;
+      letter-spacing: 2px;
+      color: rgba(255,255,255,0.6);
+      margin-bottom: 8px;
+    }
+    .time {
+      font-size: 4rem;
+      font-weight: 800;
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+      text-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+    .controls {
+      margin-top: 16px;
+      display: flex;
+      gap: 12px;
+    }
+    button {
+      background: rgba(255,255,255,0.15);
+      border: none;
+      color: #fff;
+      padding: 6px 16px;
+      border-radius: 20px;
+      font-weight: 600;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    button:hover { background: rgba(255,255,255,0.25); }
+    button:active { transform: scale(0.95); }
+    .btn-primary { background: #3b82f6; }
+    .btn-primary:hover { background: #2563eb; }
+  </style>
+</head>
+<body>
+  <div class="title" id="mode">专注时间</div>
+  <div class="time" id="time-display">25:00</div>
+  <div class="controls">
+    <button id="btn-toggle" class="btn-primary">开始</button>
+    <button id="btn-reset">重置</button>
+  </div>
+
+  <script>
+    const FOCUS_TIME = 25 * 60;
+    let timeLeft = FOCUS_TIME;
+    let isRunning = false;
+    let timer = null;
+
+    const timeDisplay = document.getElementById('time-display');
+    const btnToggle = document.getElementById('btn-toggle');
+    const btnReset = document.getElementById('btn-reset');
+
+    function updateDisplay() {
+      const m = Math.floor(timeLeft / 60).toString().padStart(2, '0');
+      const s = (timeLeft % 60).toString().padStart(2, '0');
+      timeDisplay.innerText = `${m}:${s}`;
+    }
+
+    function toggleTimer() {
+      if (isRunning) {
+        clearInterval(timer);
+        btnToggle.innerText = '继续';
+        btnToggle.classList.remove('btn-primary');
+      } else {
+        btnToggle.innerText = '暂停';
+        btnToggle.classList.add('btn-primary');
+        timer = setInterval(() => {
+          if (timeLeft > 0) {
+            timeLeft--;
+            updateDisplay();
+          } else {
+            clearInterval(timer);
+            isRunning = false;
+            btnToggle.innerText = '开始';
+            // TODO: 调用 Rust 播放声音或发送通知
+            alert('专注时间结束，休息一下吧！');
+          }
+        }, 1000);
+      }
+      isRunning = !isRunning;
+    }
+
+    function resetTimer() {
+      clearInterval(timer);
+      isRunning = false;
+      timeLeft = FOCUS_TIME;
+      btnToggle.innerText = '开始';
+      btnToggle.classList.add('btn-primary');
+      updateDisplay();
+    }
+
+    btnToggle.addEventListener('click', toggleTimer);
+    btnReset.addEventListener('click', resetTimer);
+    
+    updateDisplay();
+  </script>
+</body>
+</html>

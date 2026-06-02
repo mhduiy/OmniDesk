@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>System Monitor Mock</title>
+  <script src="/widget-sdk.js"></script>
+  <style>
+    body { 
+      margin: 0; padding: 10px; color: #fff; 
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; 
+      display: flex; justify-content: space-around; align-items: center;
+      height: 100vh; box-sizing: border-box;
+      -webkit-font-smoothing: antialiased;
+      background: transparent;
+    }
+    .gauge-container {
+      position: relative;
+      width: 100px;
+      height: 100px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+    }
+    .gauge {
+      width: 100%;
+      height: 100%;
+      transform: rotate(-90deg);
+    }
+    .bg, .fill {
+      fill: none;
+      stroke-width: 8;
+    }
+    .bg {
+      stroke: rgba(255,255,255,0.1);
+    }
+    .fill {
+      stroke-linecap: round;
+      stroke-dasharray: 251.2; /* 2 * PI * 40 = 251.2 */
+      stroke-dashoffset: 251.2;
+      transition: stroke-dashoffset 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    /* SVG gradients */
+    .cpu-fill { stroke: url(#cpuGradient); }
+    .mem-fill { stroke: url(#memGradient); }
+    
+    .info {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    .value {
+      font-size: 1.2rem;
+      font-weight: 700;
+      margin-top: 4px;
+      color: rgba(255,255,255,0.95);
+      text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+    }
+    .label {
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: rgba(255,255,255,0.6);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+  </style>
+</head>
+<body>
+  
+  <!-- CPU Gauge -->
+  <div class="gauge-container">
+    <svg viewBox="0 0 100 100" class="gauge">
+      <defs>
+        <linearGradient id="cpuGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#4ade80" />
+          <stop offset="100%" stop-color="#10b981" />
+        </linearGradient>
+      </defs>
+      <circle class="bg" cx="50" cy="50" r="40" />
+      <circle class="fill cpu-fill" cx="50" cy="50" r="40" id="cpu-ring" />
+    </svg>
+    <div class="info">
+      <span class="value" id="cpu-text">--%</span>
+      <span class="label">CPU</span>
+    </div>
+  </div>
+
+  <!-- RAM Gauge -->
+  <div class="gauge-container">
+    <svg viewBox="0 0 100 100" class="gauge">
+      <defs>
+        <linearGradient id="memGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#60a5fa" />
+          <stop offset="100%" stop-color="#3b82f6" />
+        </linearGradient>
+      </defs>
+      <circle class="bg" cx="50" cy="50" r="40" />
+      <circle class="fill mem-fill" cx="50" cy="50" r="40" id="mem-ring" />
+    </svg>
+    <div class="info">
+      <span class="value" id="mem-text">--%</span>
+      <span class="label">RAM</span>
+    </div>
+  </div>
+
+  <script>
+    const CIRCUMFERENCE = 251.2;
+
+    function setProgress(id, percent) {
+      const ring = document.getElementById(id);
+      // dashoffset 为 0 是全满，为 CIRCUMFERENCE 是全空
+      const offset = CIRCUMFERENCE - (percent / 100) * CIRCUMFERENCE;
+      ring.style.strokeDashoffset = offset;
+    }
+
+    // 初始状态
+    setProgress('cpu-ring', 0);
+    setProgress('mem-ring', 0);
+
+    // 监听系统状态事件
+    window.__widgetBridge.on('sysinfo_update', (data) => {
+      // data: { cpu_usage: 32.5, mem_usage: 68.2 }
+      if (data) {
+        const cpu = Math.round(data.cpu_usage);
+        const mem = Math.round(data.mem_usage);
+
+        document.getElementById('cpu-text').innerText = `${cpu}%`;
+        setProgress('cpu-ring', cpu);
+
+        document.getElementById('mem-text').innerText = `${mem}%`;
+        setProgress('mem-ring', mem);
+      }
+    });
+  </script>
+</body>
+</html>
