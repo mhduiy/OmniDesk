@@ -50,6 +50,18 @@ function App() {
   const [bgUrl, setBgUrl] = useState("https://bing.biturl.top/?resolution=1920&format=image&index=0&mkt=zh-CN");
   const [isEditMode, setIsEditMode] = useState(false);
 
+  const [wallpaperType, setWallpaperType] = useState<'static'|'video'>(
+    () => (localStorage.getItem('wallpaperType') as 'static'|'video') || 'static'
+  );
+  const [videoUrl, setVideoUrl] = useState('');
+  const [contextMenu, setContextMenu] = useState<{x: number, y: number} | null>(null);
+
+  const handleWallpaperTypeChange = (type: 'static'|'video') => {
+    setWallpaperType(type);
+    localStorage.setItem('wallpaperType', type);
+    setContextMenu(null);
+  };
+
   useEffect(() => {
     // 监听 Alt + E 切换编辑模式
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -59,32 +71,50 @@ function App() {
     };
     window.addEventListener('keydown', handleKeyDown);
 
-    // 动态获取真实 Bing 壁纸，避免跨天缓存问题
+    // 动态获取壁纸 (Bing or Apple TV)
     const fetchWallpaper = async () => {
-      try {
-        const res = await invoke<string>('fetch_proxy', { 
-          url: 'https://www.bing.com/HPImageArchive.aspx?format=js&idx=0&n=1&mkt=zh-CN',
-          token: null
-        });
-        const data = JSON.parse(res);
-        if (data.images && data.images[0]) {
-          const realUrl = "https://www.bing.com" + data.images[0].url;
-          setBgUrl(prev => prev !== realUrl ? realUrl : prev);
+      if (wallpaperType === 'static') {
+        try {
+          const res = await invoke<string>('fetch_proxy', { 
+            url: 'https://www.bing.com/HPImageArchive.aspx?format=js&idx=0&n=1&mkt=zh-CN',
+            token: null
+          });
+          const data = JSON.parse(res);
+          if (data.images && data.images[0]) {
+            const realUrl = "https://www.bing.com" + data.images[0].url;
+            setBgUrl(prev => prev !== realUrl ? realUrl : prev);
+          }
+        } catch (e) {
+          console.error("获取壁纸失败:", e);
         }
-      } catch (e) {
-        console.error("获取壁纸失败:", e);
+      } else {
+        try {
+          // Apple TV Aerial JSON
+          const res = await invoke<string>('fetch_proxy', { 
+            url: 'http://a1.phobos.apple.com/us/r1000/000/Features/atv/AutumnResources/videos/entries.json',
+            token: null
+          });
+          const data = JSON.parse(res);
+          // 提取所有资产
+          const allAssets = data.flatMap((d: any) => d.assets);
+          // 随机挑选一个
+          const randomAsset = allAssets[Math.floor(Math.random() * allAssets.length)];
+          setVideoUrl(randomAsset.url);
+        } catch (e) {
+          console.error("获取动态壁纸失败:", e);
+        }
       }
     };
 
     fetchWallpaper();
-    // 每 30 分钟检查一次壁纸更新
+    // 每 30 分钟检查一次壁纸更新 (或者换一个新的视频)
     const timer = setInterval(fetchWallpaper, 1000 * 60 * 30);
 
     return () => {
       clearInterval(timer);
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, []);
+  }, [wallpaperType]);
 
   const [isWidgetsHidden, setIsWidgetsHidden] = useState(false);
 
@@ -93,7 +123,19 @@ function App() {
       className="w-screen h-screen relative bg-cover bg-center overflow-hidden transition-all duration-1000 select-none"
       style={{ backgroundImage: `url('${bgUrl}')` }}
       onDoubleClick={() => setIsWidgetsHidden(prev => !prev)}
+      onContextMenu={(e) => { e.preventDefault(); setContextMenu({ x: e.clientX, y: e.clientY }); }}
     >
+      {wallpaperType === 'video' && videoUrl && (
+        <video 
+          key={videoUrl}
+          src={videoUrl}
+          autoPlay 
+          loop 
+          muted 
+          className="absolute inset-0 w-full h-full object-cover z-0 pointer-events-none"
+        ></video>
+      )}
+
       {/* 桌面层遮罩，用来稍微压暗壁纸，保证组件文字可读性 */}
       <div className={`absolute inset-0 bg-black/30 pointer-events-none z-0 transition-opacity duration-500 ${isWidgetsHidden ? 'opacity-0' : 'opacity-100'}`}></div>
 
@@ -117,6 +159,34 @@ function App() {
       <div className={`absolute bottom-4 right-6 text-white/50 text-sm z-20 pointer-events-none transition-opacity duration-500 ${isWidgetsHidden ? 'opacity-0' : 'opacity-100'}`}>
         OmniDesk (Debug) v0.1.0
       </div>
+
+      {/* 自定义右键菜单 */}
+      {contextMenu && (
+        <>
+          <div 
+            className="fixed inset-0 z-40" 
+            onClick={() => setContextMenu(null)} 
+            onContextMenu={(e) => { e.preventDefault(); setContextMenu(null); }}
+          ></div>
+          <div 
+            className="fixed z-50 bg-black/60 backdrop-blur-md border border-white/10 rounded-lg p-2 flex flex-col gap-1 text-sm shadow-2xl"
+            style={{ left: contextMenu.x, top: contextMenu.y }}
+          >
+            <div 
+              className="px-4 py-2 hover:bg-white/10 rounded cursor-pointer text-white/90 transition-colors"
+              onClick={() => handleWallpaperTypeChange(wallpaperType === 'static' ? 'video' : 'static')}
+            >
+              {wallpaperType === 'static' ? '📺 切换为动态壁纸 (Apple TV)' : '🖼️ 切换为静态壁纸 (Bing)'}
+            </div>
+            <div 
+              className="px-4 py-2 hover:bg-white/10 rounded cursor-pointer text-white/90 transition-colors"
+              onClick={() => { setIsEditMode(!isEditMode); setContextMenu(null); }}
+            >
+              {isEditMode ? '✅ 退出编辑模式' : '📐 进入布局编辑模式 (Alt+E)'}
+            </div>
+          </div>
+        </>
+      )}
     </main>
   );
 }
