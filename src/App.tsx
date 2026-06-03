@@ -86,23 +86,26 @@ function App() {
     };
   }, []);
 
+  const [isWidgetsHidden, setIsWidgetsHidden] = useState(false);
+
   return (
     <main 
-      className="w-screen h-screen relative bg-cover bg-center overflow-hidden transition-all duration-1000"
+      className="w-screen h-screen relative bg-cover bg-center overflow-hidden transition-all duration-1000 select-none"
       style={{ backgroundImage: `url('${bgUrl}')` }}
+      onDoubleClick={() => setIsWidgetsHidden(prev => !prev)}
     >
       {/* 桌面层遮罩，用来稍微压暗壁纸，保证组件文字可读性 */}
-      <div className="absolute inset-0 bg-black/30 pointer-events-none z-0"></div>
+      <div className={`absolute inset-0 bg-black/30 pointer-events-none z-0 transition-opacity duration-500 ${isWidgetsHidden ? 'opacity-0' : 'opacity-100'}`}></div>
 
       {/* 编辑模式提示条 */}
-      {isEditMode && (
-        <div className="absolute top-0 left-0 w-full bg-blue-500/80 backdrop-blur text-white text-center py-2 z-50 font-bold shadow-lg">
+      {isEditMode && !isWidgetsHidden && (
+        <div className="absolute top-0 left-0 w-full bg-blue-500/80 backdrop-blur text-white text-center py-2 z-50 font-bold shadow-lg transition-opacity">
           进入布局编辑模式：拖拽移动组件。按 Alt+E 退出。
         </div>
       )}
 
       {/* 网格引擎作为容器层 */}
-      <div className="relative z-10 w-full h-full">
+      <div className={`relative z-10 w-full h-full transition-opacity duration-500 ${isWidgetsHidden ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
         <GridEngine 
           widgets={widgets} 
           isEditMode={isEditMode}
@@ -111,8 +114,8 @@ function App() {
       </div>
 
       {/* 右下角版本提示 */}
-      <div className="absolute bottom-4 right-6 text-white/50 text-sm z-20 pointer-events-none">
-        Widget Desktop (Debug) v0.1.0
+      <div className={`absolute bottom-4 right-6 text-white/50 text-sm z-20 pointer-events-none transition-opacity duration-500 ${isWidgetsHidden ? 'opacity-0' : 'opacity-100'}`}>
+        OmniDesk (Debug) v0.1.0
       </div>
     </main>
   );
