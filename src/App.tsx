@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 import "./index.css";
 import GridEngine, { WidgetLayout } from "./components/GridEngine";
@@ -22,7 +22,6 @@ const DEFAULT_WIDGETS: WidgetLayout[] = [
 
 function App() {
   const [widgets, setWidgets] = useState<WidgetLayout[]>([]);
-  const isInitialized = useRef(false);
 
   useEffect(() => {
     // 首次加载时从本地读取配置

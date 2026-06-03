@@ -8,7 +8,7 @@ interface IframeHostProps {
   src: string;         // Widget 的入口 URL
 }
 
-export default function IframeHost({ id, instanceId, src }: IframeHostProps) {
+export default function IframeHost({ instanceId, src }: IframeHostProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const unlistenFns = useRef<Record<string, UnlistenFn>>({});
 

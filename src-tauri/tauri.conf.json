@@ -12,13 +12,14 @@
   "app": {
     "windows": [
       {
-        "title": "Widget Desktop (Debug)",
+        "title": "Widget Desktop",
         "width": 1280,
         "height": 720,
-        "decorations": true,
+        "maximized": true,
+        "decorations": false,
         "transparent": true,
         "fullscreen": false,
-        "skipTaskbar": false
+        "skipTaskbar": true
       }
     ],
     "security": {

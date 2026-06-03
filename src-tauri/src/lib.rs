@@ -117,16 +117,20 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             if let Some(_window) = app.get_webview_window("main") {
-                // [DEBUG MODE]: 用户要求先作为普通窗口调试，暂不注入 _NET_WM_WINDOW_TYPE_DESKTOP
-                /*
                 #[cfg(target_os = "linux")]
                 {
+                    // 1. 强制铺满全屏，防止 KWin 的 DESKTOP type 忽略 maximize
+                    if let Ok(Some(monitor)) = _window.primary_monitor() {
+                        let size = monitor.size();
+                        let _ = _window.set_size(*size);
+                        let _ = _window.set_position(tauri::PhysicalPosition::new(0, 0));
+                    }
+                    
                     let backend = display::x11::X11Backend;
                     if let Err(e) = backend.mount_to_desktop(&_window) {
                         eprintln!("Failed to mount to desktop: {}", e);
                     }
                 }
-                */
             }
 
             let app_handle = app.handle().clone();
