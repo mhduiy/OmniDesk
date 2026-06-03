@@ -40,13 +40,25 @@
       border-radius: 10px;
       cursor: pointer;
       transition: all 0.2s;
+      border-left: 3px solid transparent;
+      display: flex;
+      gap: 12px;
+      align-items: stretch;
+    }
+    .news-item:hover { background: rgba(255,255,255,0.12); border-left-color: #3b82f6; transform: translateX(2px); }
+    
+    .news-content {
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      flex-grow: 1;
+      min-width: 0;
     }
-    .news-item:hover { background: rgba(255,255,255,0.12); transform: translateX(2px); }
-    .news-title { font-size: 0.85rem; font-weight: 600; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-    .news-meta { font-size: 0.7rem; color: rgba(255,255,255,0.4); display: flex; justify-content: space-between; }
+    
+    .meta-row { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; font-size: 0.75rem; color: rgba(255,255,255,0.5); gap: 8px; }
+    .source { font-weight: 400; color: #93c5fd; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; letter-spacing: 0.5px; }
+    .time { font-family: monospace; white-space: nowrap; flex-shrink: 0; }
+    
+    .title { font-size: 0.9rem; font-weight: 400; letter-spacing: 0.5px; line-height: 1.5; margin-bottom: 6px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; color: #fff; }
     
     .status { font-size: 0.8rem; color: rgba(255,255,255,0.4); text-align: center; margin-top: 20px; }
     .loading-spinner {
@@ -75,7 +87,7 @@
     const feeds = [
       { id: 'qt', name: 'Qt', url: 'https://www.qt.io/blog/rss.xml', color: '#41cd52' },
       { id: 'ubuntu', name: 'Ubuntu', url: 'https://ubuntu.com/blog/feed', color: '#E95420' },
-      { id: 'debian', name: 'Debian', url: 'https://www.debian.org/News/news', color: '#D70A53' },
+      { id: 'linuxcom', name: 'Linux', url: 'https://www.linux.com/feed/', color: '#6b7280' },
       { id: 'kde', name: 'KDE', url: 'https://planet.kde.org/rss20.xml', color: '#1d99f3' }
     ];
     
@@ -165,10 +177,12 @@
           div.onclick = () => window.__widgetBridge.invoke('open_url', { url: item.link });
           
           div.innerHTML = `
-            <div class="news-title">${item.title}</div>
-            <div class="news-meta">
-              <span>${feed.name} Blog</span>
-              <span>${item.date}</span>
+            <div class="news-content">
+              <div class="meta-row">
+                <span class="source">${feed.name} Blog</span>
+                <span class="time">${item.date}</span>
+              </div>
+              <div class="title">${item.title}</div>
             </div>
           `;
           listEl.appendChild(div);
