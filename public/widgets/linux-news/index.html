@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Linux News</title>
+  <script src="/widget-sdk.js"></script>
+  <style>
+    body {
+      margin: 0; padding: 16px; height: 100vh;
+      box-sizing: border-box;
+      font-family: system-ui, -apple-system, sans-serif;
+      background: rgba(0, 0, 0, 0.2);
+      color: rgba(255,255,255,0.9);
+      display: flex; flex-direction: column;
+      -webkit-font-smoothing: antialiased;
+    }
+    .header { 
+      font-size: 1rem; font-weight: bold; margin-bottom: 12px; flex-shrink: 0; 
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .tabs {
+      display: flex; gap: 8px; margin-bottom: 12px; flex-shrink: 0; overflow-x: auto;
+    }
+    .tabs::-webkit-scrollbar { display: none; }
+    .tab {
+      padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600;
+      background: rgba(255,255,255,0.1); cursor: pointer; transition: all 0.2s;
+      white-space: nowrap; color: rgba(255,255,255,0.6);
+    }
+    .tab:hover { background: rgba(255,255,255,0.2); color: white; }
+    .tab.active { background: #3b82f6; color: white; }
+    
+    .news-list { display: flex; flex-direction: column; gap: 10px; overflow-y: auto; flex-grow: 1; padding-right: 4px; }
+    .news-list::-webkit-scrollbar { width: 4px; }
+    .news-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+    
+    .news-item {
+      background: rgba(255,255,255,0.06);
+      padding: 12px;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .news-item:hover { background: rgba(255,255,255,0.12); transform: translateX(2px); }
+    .news-title { font-size: 0.85rem; font-weight: 600; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .news-meta { font-size: 0.7rem; color: rgba(255,255,255,0.4); display: flex; justify-content: space-between; }
+    
+    .status { font-size: 0.8rem; color: rgba(255,255,255,0.4); text-align: center; margin-top: 20px; }
+    .loading-spinner {
+      width: 20px; height: 20px; border: 2px solid rgba(255,255,255,0.2);
+      border-top: 2px solid #3b82f6; border-radius: 50%;
+      animation: spin 1s linear infinite; margin: 20px auto;
+    }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <span>🐧 Linux & Qt News</span>
+    <span style="font-size: 0.75rem; font-weight: normal; color: rgba(255,255,255,0.5);" id="update-time">--:--</span>
+  </div>
+  
+  <div class="tabs" id="tabs-container">
+    <!-- Tabs injected via JS -->
+  </div>
+
+  <div class="news-list" id="news-list">
+    <div class="loading-spinner"></div>
+  </div>
+
+  <script>
+    const feeds = [
+      { id: 'qt', name: 'Qt', url: 'https://www.qt.io/blog/rss.xml', color: '#41cd52' },
+      { id: 'ubuntu', name: 'Ubuntu', url: 'https://ubuntu.com/blog/feed', color: '#E95420' },
+      { id: 'debian', name: 'Debian', url: 'https://www.debian.org/News/news', color: '#D70A53' },
+      { id: 'kde', name: 'KDE', url: 'https://planet.kde.org/rss20.xml', color: '#1d99f3' }
+    ];
+    
+    let activeFeedId = 'qt';
+    
+    function renderTabs() {
+      const container = document.getElementById('tabs-container');
+      container.innerHTML = '';
+      feeds.forEach(f => {
+        const t = document.createElement('div');
+        t.className = `tab ${f.id === activeFeedId ? 'active' : ''}`;
+        t.innerText = f.name;
+        if (f.id === activeFeedId) {
+            t.style.backgroundColor = f.color;
+        }
+        t.onclick = () => {
+          activeFeedId = f.id;
+          renderTabs();
+          fetchNews();
+        };
+        container.appendChild(t);
+      });
+    }
+
+    function parseXML(xmlStr) {
+      const parser = new DOMParser();
+      return parser.parseFromString(xmlStr, "text/xml");
+    }
+
+    function extractItems(xmlDoc) {
+      const items = [];
+      // Support RSS 2.0 and RDF/Atom
+      const nodes = xmlDoc.querySelectorAll("item, entry");
+      nodes.forEach(node => {
+        const titleNode = node.querySelector("title");
+        const linkNode = node.querySelector("link");
+        const dateNode = node.querySelector("pubDate, date, updated, published");
+        
+        let link = "";
+        if (linkNode) {
+          link = linkNode.textContent || linkNode.getAttribute("href");
+        }
+        
+        let date = "";
+        if (dateNode) {
+          date = new Date(dateNode.textContent).toLocaleDateString();
+        } else {
+          // Dublin Core date <dc:date>
+          const dcDate = node.getElementsByTagNameNS("*", "date")[0];
+          if (dcDate) {
+            date = new Date(dcDate.textContent).toLocaleDateString();
+          }
+        }
+        
+        if (titleNode && link) {
+          items.push({
+            title: titleNode.textContent.trim(),
+            link: link.trim(),
+            date: date || "Unknown date"
+          });
+        }
+      });
+      return items;
+    }
+
+    async function fetchNews() {
+      const listEl = document.getElementById('news-list');
+      listEl.innerHTML = '<div class="loading-spinner"></div>';
+      
+      const feed = feeds.find(f => f.id === activeFeedId);
+      if (!feed) return;
+      
+      try {
+        const res = await window.__widgetBridge.invoke('fetch_proxy', { url: feed.url });
+        const xmlDoc = parseXML(res);
+        const items = extractItems(xmlDoc);
+        
+        listEl.innerHTML = '';
+        if (items.length === 0) {
+          listEl.innerHTML = '<div class="status">暂无最新动态或无法解析</div>';
+          return;
+        }
+        
+        items.slice(0, 15).forEach(item => {
+          const div = document.createElement('div');
+          div.className = 'news-item';
+          div.onclick = () => window.__widgetBridge.invoke('open_url', { url: item.link });
+          
+          div.innerHTML = `
+            <div class="news-title">${item.title}</div>
+            <div class="news-meta">
+              <span>${feed.name} Blog</span>
+              <span>${item.date}</span>
+            </div>
+          `;
+          listEl.appendChild(div);
+        });
+        
+        const now = new Date();
+        document.getElementById('update-time').innerText = `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}`;
+        
+      } catch (e) {
+        listEl.innerHTML = `<div class="status" style="color: #ef4444">加载失败: ${e.message || '网络连接错误'}</div>`;
+      }
+    }
+
+    renderTabs();
+    fetchNews();
+    setInterval(fetchNews, 60 * 60 * 1000); // 1小时刷新一次
+  </script>
+</body>
+</html>

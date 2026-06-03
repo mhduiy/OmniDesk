@@ -10,11 +10,11 @@ const DEFAULT_WIDGETS: WidgetLayout[] = [
   { id: "countdown", instanceId: "countdown_1", x: 10, y: 2, w: 2, h: 2 },
   { id: "shortcuts", instanceId: "shortcuts_1", x: 10, y: 4, w: 2, h: 2 },
   { id: "pomodoro", instanceId: "pomodoro_1", x: 2, y: 6, w: 2, h: 2 },
-  { id: "prompt", instanceId: "prompt_1", x: 10, y: 6, w: 4, h: 2 },
+  { id: "prompt", instanceId: "prompt_1", x: 10, y: 6, w: 2, h: 2 },
   { id: "weather", instanceId: "weather_1", x: 12, y: 2, w: 2, h: 2 },
   { id: "github-monitor", instanceId: "github_1", x: 14, y: 2, w: 4, h: 4 },
   { id: "habit-tracker", instanceId: "habit_1", x: 4, y: 6, w: 2, h: 2 },
-  { id: "ai-quota", instanceId: "quota_1", x: 12, y: 4, w: 2, h: 2 },
+  { id: "linux-news", instanceId: "linux_1", x: 12, y: 4, w: 2, h: 4 },
   { id: "ai-news", instanceId: "news_1", x: 18, y: 2, w: 4, h: 4 },
   { id: "weibo-hot", instanceId: "weibo_1", x: 14, y: 6, w: 4, h: 4 }
 ];
