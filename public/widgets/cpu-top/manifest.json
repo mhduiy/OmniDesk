@@ -1,0 +1,8 @@
+{
+  "id": "cpu-top",
+  "name": "CPU Top 进程",
+  "description": "显示 CPU 占用最高的进程，支持一键结束",
+  "width": 4,
+  "height": 4,
+  "icon": "📋"
+}

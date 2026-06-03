@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <title>Network Monitor</title>
+  <script src="/widget-sdk.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      color: #fff;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      background: transparent;
+      padding: 12px 16px;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      -webkit-font-smoothing: antialiased;
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+    .title {
+      font-size: 13px;
+      font-weight: 700;
+      color: rgba(255,255,255,0.9);
+    }
+    .speed-display {
+      display: flex;
+      gap: 16px;
+    }
+    .speed-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .speed-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+    }
+    .speed-dot.up { background: #34d399; }
+    .speed-dot.down { background: #60a5fa; }
+    .speed-value {
+      font-size: 12px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      color: rgba(255,255,255,0.8);
+    }
+    .chart-container {
+      flex: 1;
+      position: relative;
+      min-height: 0;
+    }
+    .chart-svg {
+      width: 100%;
+      height: 100%;
+    }
+    .grid-line {
+      stroke: rgba(255,255,255,0.05);
+      stroke-width: 1;
+    }
+    .axis-label {
+      fill: rgba(255,255,255,0.25);
+      font-size: 9px;
+      font-family: system-ui, sans-serif;
+    }
+    .area-down {
+      fill: url(#downGradient);
+    }
+    .area-up {
+      fill: url(#upGradient);
+    }
+    .line-down {
+      fill: none;
+      stroke: #60a5fa;
+      stroke-width: 1.5;
+      stroke-linejoin: round;
+    }
+    .line-up {
+      fill: none;
+      stroke: #34d399;
+      stroke-width: 1.5;
+      stroke-linejoin: round;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <span class="title">🌐 网络监控</span>
+    <div class="speed-display">
+      <div class="speed-item">
+        <span class="speed-dot down"></span>
+        <span class="speed-value" id="down-speed">0 B/s</span>
+      </div>
+      <div class="speed-item">
+        <span class="speed-dot up"></span>
+        <span class="speed-value" id="up-speed">0 B/s</span>
+      </div>
+    </div>
+  </div>
+  <div class="chart-container">
+    <svg class="chart-svg" id="chart" preserveAspectRatio="none">
+      <defs>
+        <linearGradient id="downGradient" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#60a5fa" stop-opacity="0.3"/>
+          <stop offset="100%" stop-color="#60a5fa" stop-opacity="0.02"/>
+        </linearGradient>
+        <linearGradient id="upGradient" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#34d399" stop-opacity="0.25"/>
+          <stop offset="100%" stop-color="#34d399" stop-opacity="0.02"/>
+        </linearGradient>
+      </defs>
+    </svg>
+  </div>
+
+  <script>
+    const HISTORY_LEN = 60;
+    const downHistory = new Array(HISTORY_LEN).fill(0);
+    const upHistory = new Array(HISTORY_LEN).fill(0);
+
+    function formatSpeed(bytesPerSec) {
+      if (bytesPerSec >= 1024 * 1024) return (bytesPerSec / (1024 * 1024)).toFixed(1) + ' MB/s';
+      if (bytesPerSec >= 1024) return (bytesPerSec / 1024).toFixed(1) + ' KB/s';
+      return bytesPerSec.toFixed(0) + ' B/s';
+    }
+
+    function buildPath(data, chartW, chartH, maxVal) {
+      if (maxVal <= 0) maxVal = 1;
+      const stepX = chartW / (HISTORY_LEN - 1);
+      const points = data.map((v, i) => {
+        const x = i * stepX;
+        const y = chartH - (v / maxVal) * chartH * 0.85;
+        return `${x},${y}`;
+      });
+      return points.join(' ');
+    }
+
+    function renderChart() {
+      const svg = document.getElementById('chart');
+      const rect = svg.getBoundingClientRect();
+      const w = rect.width || 300;
+      const h = rect.height || 100;
+
+      // 找到最大值用于缩放
+      const allVals = [...downHistory, ...upHistory];
+      const maxVal = Math.max(1024, ...allVals) * 1.1;
+
+      // 构建面积路径（从左到右，再从右到左闭合）
+      const downLine = buildPath(downHistory, w, h, maxVal);
+      const upLine = buildPath(upHistory, w, h, maxVal);
+      const baseLine = `${w},${h} 0,${h}`;
+
+      // 更新 SVG
+      svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+      svg.innerHTML = `
+        <defs>
+          <linearGradient id="downGradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#60a5fa" stop-opacity="0.3"/>
+            <stop offset="100%" stop-color="#60a5fa" stop-opacity="0.02"/>
+          </linearGradient>
+          <linearGradient id="upGradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#34d399" stop-opacity="0.25"/>
+            <stop offset="100%" stop-color="#34d399" stop-opacity="0.02"/>
+          </linearGradient>
+        </defs>
+        ${[0.25, 0.5, 0.75].map(r => `<line x1="0" y1="${h * r}" x2="${w}" y2="${h * r}" class="grid-line"/>`).join('')}
+        <polygon points="${downLine} ${baseLine}" class="area-down"/>
+        <polyline points="${downLine}" class="line-down"/>
+        <polygon points="${upLine} ${baseLine}" class="area-up"/>
+        <polyline points="${upLine}" class="line-up"/>
+        <text x="${w - 2}" y="10" text-anchor="end" class="axis-label">${formatSpeed(maxVal)}</text>
+        <text x="${w - 2}" y="${h - 2}" text-anchor="end" class="axis-label">0</text>
+      `;
+    }
+
+    function updateDisplay(downBytes, upBytes) {
+      // 移动历史数据
+      downHistory.shift();
+      upHistory.shift();
+      downHistory.push(downBytes);
+      upHistory.push(upBytes);
+
+      // 更新速度显示
+      document.getElementById('down-speed').textContent = formatSpeed(downBytes);
+      document.getElementById('up-speed').textContent = formatSpeed(upBytes);
+
+      renderChart();
+    }
+
+    // 监听系统信息事件（包含网络数据）
+    window.__widgetBridge.on('sysinfo_update', (data) => {
+      if (data && data.net_bytes_in !== undefined) {
+        updateDisplay(data.net_bytes_in, data.net_bytes_out);
+      }
+    });
+
+    // 初始渲染
+    renderChart();
+  </script>
+</body>
+</html>

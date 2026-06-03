@@ -21,9 +21,10 @@ interface GridEngineProps {
   widgets: WidgetLayout[];
   isEditMode: boolean;
   onWidgetChange: (widgets: WidgetLayout[]) => void;
+  onDeleteWidget?: (instanceId: string) => void;
 }
 
-export default function GridEngine({ widgets, isEditMode, onWidgetChange }: GridEngineProps) {
+export default function GridEngine({ widgets, isEditMode, onWidgetChange, onDeleteWidget }: GridEngineProps) {
   // 拖拽状态
   const [dragState, setDragState] = useState<{
     id: string | null;
@@ -167,7 +168,7 @@ export default function GridEngine({ widgets, isEditMode, onWidgetChange }: Grid
 
             {/* 编辑模式遮罩层：拦截所有的鼠标事件，防止穿透到 iframe 内部 */}
             {isEditMode && (
-              <div 
+              <div
                 className={`absolute inset-0 z-50 flex items-center justify-center backdrop-blur-sm bg-white/10
                            ${isDragging ? 'cursor-grabbing' : 'cursor-grab hover:bg-white/20'}`}
                 onPointerDown={(e) => onPointerDown(e, widget.instanceId)}
@@ -175,6 +176,17 @@ export default function GridEngine({ widgets, isEditMode, onWidgetChange }: Grid
                 onPointerUp={(e) => onPointerUp(e, widget)}
                 onPointerCancel={(e) => onPointerUp(e, widget)}
               >
+                {/* 删除按钮 */}
+                <button
+                  className="absolute top-2 right-2 w-7 h-7 bg-red-500/80 hover:bg-red-500 text-white rounded-full flex items-center justify-center text-sm font-bold shadow-lg pointer-events-auto cursor-pointer transition-colors z-50"
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDeleteWidget?.(widget.instanceId);
+                  }}
+                >
+                  ×
+                </button>
                 <div className="bg-black/50 text-white px-4 py-2 rounded-full font-bold shadow-lg pointer-events-none">
                   {isDragging ? '松开吸附' : '拖拽移动'}
                 </div>

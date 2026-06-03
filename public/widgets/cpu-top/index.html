@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <title>CPU Top Processes</title>
+  <script src="/widget-sdk.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      color: #fff;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      background: transparent;
+      padding: 12px;
+      font-size: 12px;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      -webkit-font-smoothing: antialiased;
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    .header-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: rgba(255,255,255,0.9);
+      letter-spacing: 0.5px;
+    }
+    .refresh-btn {
+      background: rgba(255,255,255,0.1);
+      border: none;
+      color: rgba(255,255,255,0.6);
+      padding: 3px 8px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 11px;
+      transition: all 0.2s;
+    }
+    .refresh-btn:hover {
+      background: rgba(255,255,255,0.2);
+      color: #fff;
+    }
+    .process-list {
+      flex: 1;
+      overflow-y: auto;
+    }
+    .process-list::-webkit-scrollbar { width: 3px; }
+    .process-list::-webkit-scrollbar-track { background: transparent; }
+    .process-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 3px; }
+    .process-row {
+      display: flex;
+      align-items: center;
+      padding: 5px 6px;
+      border-radius: 6px;
+      transition: background 0.15s;
+      gap: 6px;
+    }
+    .process-row:hover { background: rgba(255,255,255,0.06); }
+    .process-name {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: rgba(255,255,255,0.85);
+      font-weight: 500;
+    }
+    .process-pid {
+      color: rgba(255,255,255,0.35);
+      font-size: 10px;
+      min-width: 36px;
+      text-align: right;
+    }
+    .process-cpu {
+      min-width: 48px;
+      text-align: right;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+    .process-mem {
+      min-width: 48px;
+      text-align: right;
+      color: rgba(255,255,255,0.5);
+      font-size: 11px;
+      font-variant-numeric: tabular-nums;
+    }
+    .cpu-bar {
+      width: 40px;
+      height: 4px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .cpu-bar-fill {
+      height: 100%;
+      border-radius: 2px;
+      transition: width 0.3s ease;
+    }
+    .kill-btn {
+      background: rgba(239,68,68,0.15);
+      border: 1px solid rgba(239,68,68,0.3);
+      color: #ef4444;
+      padding: 2px 6px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 10px;
+      font-weight: 600;
+      opacity: 0;
+      transition: all 0.15s;
+    }
+    .process-row:hover .kill-btn { opacity: 1; }
+    .kill-btn:hover {
+      background: rgba(239,68,68,0.3);
+      border-color: rgba(239,68,68,0.5);
+    }
+    .loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      color: rgba(255,255,255,0.3);
+    }
+    .confirm-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+    }
+    .confirm-box {
+      background: rgba(20,20,30,0.95);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 12px;
+      padding: 20px;
+      min-width: 240px;
+      text-align: center;
+    }
+    .confirm-title {
+      font-size: 14px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      color: rgba(255,255,255,0.9);
+    }
+    .confirm-msg {
+      font-size: 12px;
+      color: rgba(255,255,255,0.5);
+      margin-bottom: 16px;
+    }
+    .confirm-actions {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+    }
+    .confirm-actions button {
+      padding: 6px 16px;
+      border-radius: 6px;
+      border: none;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .btn-cancel {
+      background: rgba(255,255,255,0.1);
+      color: rgba(255,255,255,0.6);
+    }
+    .btn-cancel:hover { background: rgba(255,255,255,0.2); }
+    .btn-kill {
+      background: rgba(239,68,68,0.8);
+      color: #fff;
+    }
+    .btn-kill:hover { background: rgba(239,68,68,1); }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <span class="header-title">🔥 CPU Top 进程</span>
+    <button class="refresh-btn" onclick="loadProcesses()">刷新</button>
+  </div>
+  <div class="process-list" id="process-list">
+    <div class="loading">加载中...</div>
+  </div>
+
+  <script>
+    let pendingKill = null;
+
+    function getCpuColor(cpu) {
+      if (cpu > 80) return '#ef4444';
+      if (cpu > 50) return '#f59e0b';
+      if (cpu > 20) return '#10b981';
+      return '#60a5fa';
+    }
+
+    function formatMem(bytes) {
+      if (bytes >= 1024 * 1024 * 1024) return (bytes / (1024 * 1024 * 1024)).toFixed(1) + 'G';
+      if (bytes >= 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(0) + 'M';
+      return (bytes / 1024).toFixed(0) + 'K';
+    }
+
+    function renderProcesses(processes) {
+      const list = document.getElementById('process-list');
+      if (!processes || processes.length === 0) {
+        list.innerHTML = '<div class="loading">暂无进程数据</div>';
+        return;
+      }
+      list.innerHTML = processes.map(p => `
+        <div class="process-row">
+          <span class="process-name" title="${p.name} (PID: ${p.pid})">${p.name}</span>
+          <span class="process-pid">${p.pid}</span>
+          <div class="cpu-bar">
+            <div class="cpu-bar-fill" style="width:${Math.min(100, p.cpu_usage)}%;background:${getCpuColor(p.cpu_usage)}"></div>
+          </div>
+          <span class="process-cpu" style="color:${getCpuColor(p.cpu_usage)}">${p.cpu_usage.toFixed(1)}%</span>
+          <span class="process-mem">${formatMem(p.mem_usage)}</span>
+          <button class="kill-btn" onclick="confirmKill(${p.pid}, '${p.name.replace(/'/g, "\\'")}')">Kill</button>
+        </div>
+      `).join('');
+    }
+
+    function confirmKill(pid, name) {
+      pendingKill = { pid, name };
+      const overlay = document.createElement('div');
+      overlay.className = 'confirm-overlay';
+      overlay.id = 'confirm-dialog';
+      overlay.innerHTML = `
+        <div class="confirm-box">
+          <div class="confirm-title">⚠️ 确认结束进程</div>
+          <div class="confirm-msg">确定要杀死 ${name} (PID: ${pid}) 吗？</div>
+          <div class="confirm-actions">
+            <button class="btn-cancel" onclick="closeConfirm()">取消</button>
+            <button class="btn-kill" onclick="doKill()">结束进程</button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(overlay);
+    }
+
+    function closeConfirm() {
+      const dialog = document.getElementById('confirm-dialog');
+      if (dialog) dialog.remove();
+      pendingKill = null;
+    }
+
+    async function doKill() {
+      if (!pendingKill) return;
+      const { pid, name } = pendingKill;
+      closeConfirm();
+      try {
+        const result = await window.__widgetBridge.invoke('kill_process', { pid });
+        console.log(result);
+        loadProcesses();
+      } catch (err) {
+        console.error('Kill failed:', err);
+        alert('结束进程失败: ' + err);
+      }
+    }
+
+    async function loadProcesses() {
+      try {
+        const processes = await window.__widgetBridge.invoke('get_top_processes', {});
+        renderProcesses(processes);
+      } catch (err) {
+        console.error('加载进程失败:', err);
+        document.getElementById('process-list').innerHTML = '<div class="loading">加载失败</div>';
+      }
+    }
+
+    // 初始加载
+    loadProcesses();
+    // 每 10 秒自动刷新（避免频繁创建 System 实例导致卡顿）
+    setInterval(loadProcesses, 10000);
+  </script>
+</body>
+</html>
