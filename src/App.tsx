@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 import "./index.css";
 import GridEngine, { WidgetLayout } from "./components/GridEngine";
 
@@ -95,11 +95,22 @@ function App() {
             token: null
           });
           const data = JSON.parse(res);
-          // 提取所有资产
           const allAssets = data.flatMap((d: any) => d.assets);
-          // 随机挑选一个
           const randomAsset = allAssets[Math.floor(Math.random() * allAssets.length)];
-          setVideoUrl(randomAsset.url);
+          
+          const targetUrl = randomAsset.url;
+          const filename = targetUrl.substring(targetUrl.lastIndexOf('/') + 1);
+          
+          // 调用 Rust：检查本地是否有缓存，如果没有则开始静默下载
+          const cachedPath = await invoke<string | null>('check_and_cache_video', { url: targetUrl, filename });
+          
+          if (cachedPath) {
+            console.log("正在使用本地高性能视频缓存:", cachedPath);
+            setVideoUrl(convertFileSrc(cachedPath));
+          } else {
+            console.log("本地无缓存，正在流媒体播放并后台静默下载:", targetUrl);
+            setVideoUrl(targetUrl);
+          }
         } catch (e) {
           console.error("获取动态壁纸失败:", e);
         }

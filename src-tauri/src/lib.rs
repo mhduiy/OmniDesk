@@ -72,11 +72,47 @@ async fn fetch_proxy(url: String, token: Option<String>) -> Result<String, Strin
         .map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+async fn check_and_cache_video(app_handle: tauri::AppHandle, url: String, filename: String) -> Result<Option<String>, String> {
+    let path = app_handle.path().app_data_dir().unwrap_or_default().join("wallpapers").join(&filename);
+    if path.exists() {
+        return Ok(Some(path.to_string_lossy().to_string()));
+    }
+
+    if let Some(parent) = path.parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    
+    let tmp_path = path.with_extension("tmp");
+    if tmp_path.exists() {
+        return Ok(None);
+    }
+
+    tauri::async_runtime::spawn(async move {
+        let _ = std::fs::write(&tmp_path, b""); 
+        if let Ok(resp) = reqwest::get(&url).await {
+            if let Ok(bytes) = resp.bytes().await {
+                if std::fs::write(&tmp_path, bytes).is_ok() {
+                    let _ = std::fs::rename(&tmp_path, &path);
+                } else {
+                    let _ = std::fs::remove_file(&tmp_path);
+                }
+            } else {
+                let _ = std::fs::remove_file(&tmp_path);
+            }
+        } else {
+            let _ = std::fs::remove_file(&tmp_path);
+        }
+    });
+
+    Ok(None)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
-            save_layout, load_layout, widget_read_file, widget_write_file, open_url, fetch_proxy
+            save_layout, load_layout, widget_read_file, widget_write_file, open_url, fetch_proxy, check_and_cache_video
         ])
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
