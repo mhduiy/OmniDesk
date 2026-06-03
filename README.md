@@ -11,6 +11,9 @@ OmniDesk 旨在打破传统桌面的枯燥与死板，通过 **Tauri + Rust + Re
 - 🌐 **底层网络穿透 (CORS-Free Proxy)**：通过 Rust 封装的 `fetch_proxy`，前端 Widget 可以无视浏览器的跨域限制 (CORS) 和部分 WAF 拦截，轻松抓取全网数据。
 - 🎨 **极致的毛玻璃美学 (Glassmorphism)**：专门为现代混成器 (Compositors) 优化的深色模式与背景实时模糊效果，高级感拉满。
 - 💾 **沙盒文件系统 (Local Persistence)**：提供 `widget_write_file` / `widget_read_file` 接口，让每个 Widget 都能安全、持久地将用户的配置（如 API Token）保存在系统本地。
+- 🧘 **禅模式 (Zen Mode)**：在桌面空白处双击鼠标，可通过 500ms 平滑渐隐动画一键隐藏所有组件及遮罩，沉浸式欣赏 100% 亮度的纯净壁纸。
+- 🎬 **动态航拍壁纸引擎 (Hybrid Video Cache)**：集成 Apple TV 官方高清慢动作航拍资源。为根治播放卡顿，底层 Rust 引擎会在首次播放时开启多线程后台静默下载，并在下一次轮换时通过 `asset://` 协议无缝切换至本地物理硬盘直读，享受 0 延迟 0 掉帧的极客级体验。
+- 🖱️ **沉浸式右键菜单**：随时随地右键唤起高斯模糊菜单，自由在静态壁纸 (Bing 每日美图) 与 动态壁纸 (Apple 航拍大片) 间无缝切换。
 
 ## 📦 内置高阶微件 (Pre-built Widgets)
 
