@@ -47,10 +47,7 @@ function App() {
     });
   };
 
-  // 记录当天的日期，用于强制刷新壁纸
-  const [currentDay, setCurrentDay] = useState(new Date().getDate());
-
-  // 编辑模式开关
+  const [bgUrl, setBgUrl] = useState("https://bing.biturl.top/?resolution=1920&format=image&index=0&mkt=zh-CN");
   const [isEditMode, setIsEditMode] = useState(false);
 
   useEffect(() => {
@@ -62,24 +59,37 @@ function App() {
     };
     window.addEventListener('keydown', handleKeyDown);
 
-    // 每隔 1 小时检查一次是否跨天了
-    const timer = setInterval(() => {
-      const today = new Date().getDate();
-      if (today !== currentDay) {
-        setCurrentDay(today);
+    // 动态获取真实 Bing 壁纸，避免跨天缓存问题
+    const fetchWallpaper = async () => {
+      try {
+        const res = await invoke<string>('fetch_proxy', { 
+          url: 'https://www.bing.com/HPImageArchive.aspx?format=js&idx=0&n=1&mkt=zh-CN',
+          token: null
+        });
+        const data = JSON.parse(res);
+        if (data.images && data.images[0]) {
+          const realUrl = "https://www.bing.com" + data.images[0].url;
+          setBgUrl(prev => prev !== realUrl ? realUrl : prev);
+        }
+      } catch (e) {
+        console.error("获取壁纸失败:", e);
       }
-    }, 1000 * 60 * 60); // 1 小时
+    };
+
+    fetchWallpaper();
+    // 每 30 分钟检查一次壁纸更新
+    const timer = setInterval(fetchWallpaper, 1000 * 60 * 30);
+
     return () => {
       clearInterval(timer);
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [currentDay]);
+  }, []);
 
   return (
     <main 
       className="w-screen h-screen relative bg-cover bg-center overflow-hidden transition-all duration-1000"
-      // 通过 _day 参数强制浏览器在跨天时重新拉取最新壁纸，而不是使用旧缓存
-      style={{ backgroundImage: `url('https://bing.biturl.top/?resolution=1920&format=image&index=0&mkt=zh-CN&_day=${currentDay}')` }}
+      style={{ backgroundImage: `url('${bgUrl}')` }}
     >
       {/* 桌面层遮罩，用来稍微压暗壁纸，保证组件文字可读性 */}
       <div className="absolute inset-0 bg-black/30 pointer-events-none z-0"></div>
