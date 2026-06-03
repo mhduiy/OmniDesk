@@ -1,0 +1,8 @@
+{
+  "id": "system-monitor",
+  "name": "系统监控",
+  "description": "CPU/RAM 环形图 + 网络速率 + Top 进程（内联配置）",
+  "width": 4,
+  "height": 2,
+  "icon": "📊"
+}

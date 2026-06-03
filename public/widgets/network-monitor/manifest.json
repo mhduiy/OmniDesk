@@ -1,0 +1,8 @@
+{
+  "id": "network-monitor",
+  "name": "网络监控",
+  "description": "实时显示网络上下行速率，面积图展示",
+  "width": 4,
+  "height": 2,
+  "icon": "🌐"
+}

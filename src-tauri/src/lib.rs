@@ -2,15 +2,35 @@ pub mod display;
 
 use display::DisplayBackend;
 use tauri::{Manager, Emitter};
-use sysinfo::System;
+use sysinfo::{System, Networks};
 use std::time::Duration;
-use serde::Serialize;
-use std::path::PathBuf;
+use serde::{Serialize, Deserialize};
 
 #[derive(Clone, Serialize)]
 struct SysInfoPayload {
     cpu_usage: f32,
     mem_usage: f32,
+    net_bytes_in: u64,
+    net_bytes_out: u64,
+}
+
+#[derive(Clone, Serialize)]
+struct ProcessInfo {
+    pid: u32,
+    name: String,
+    cpu_usage: f32,
+    mem_usage: u64,
+    status: String,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+struct WidgetManifest {
+    id: String,
+    name: String,
+    description: String,
+    width: u32,
+    height: u32,
+    icon: Option<String>,
 }
 
 #[tauri::command]
@@ -108,11 +128,122 @@ async fn check_and_cache_video(app_handle: tauri::AppHandle, url: String, filena
     Ok(None)
 }
 
+#[tauri::command]
+fn list_available_widgets(_app_handle: tauri::AppHandle) -> Result<Vec<WidgetManifest>, String> {
+    // Try multiple possible widget directories
+    let mut widget_dirs = vec![
+        std::path::PathBuf::from("public/widgets"),
+        std::path::PathBuf::from("../public/widgets"),
+    ];
+    // Also check relative to the exe
+    if let Ok(exe_path) = std::env::current_exe() {
+        if let Some(exe_dir) = exe_path.parent() {
+            widget_dirs.push(exe_dir.join("public/widgets"));
+            widget_dirs.push(exe_dir.join("../public/widgets"));
+        }
+    }
+
+    let mut widgets = Vec::new();
+    for dir in &widget_dirs {
+        if !dir.exists() { continue; }
+        if let Ok(entries) = std::fs::read_dir(dir) {
+            for entry in entries.flatten() {
+                let manifest_path = entry.path().join("manifest.json");
+                if manifest_path.exists() {
+                    if let Ok(content) = std::fs::read_to_string(&manifest_path) {
+                        if let Ok(manifest) = serde_json::from_str::<WidgetManifest>(&content) {
+                            widgets.push(manifest);
+                        }
+                    }
+                }
+            }
+        }
+        if !widgets.is_empty() { break; }
+    }
+    Ok(widgets)
+}
+
+#[tauri::command]
+async fn get_top_processes() -> Result<Vec<ProcessInfo>, String> {
+    // 移到后台线程执行，避免阻塞主线程导致 UI 卡顿
+    tauri::async_runtime::spawn_blocking(|| {
+        let mut sys = System::new();
+        sys.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
+        // CPU usage 需要两次采样才有差值，短暂等待
+        std::thread::sleep(Duration::from_millis(100));
+        sys.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
+
+        let mut processes: Vec<ProcessInfo> = sys.processes()
+            .values()
+            .map(|p| ProcessInfo {
+                pid: p.pid().as_u32(),
+                name: p.name().to_string_lossy().to_string(),
+                cpu_usage: p.cpu_usage(),
+                mem_usage: p.memory(),
+                status: format!("{:?}", p.status()),
+            })
+            .collect();
+
+        processes.sort_by(|a, b| b.cpu_usage.partial_cmp(&a.cpu_usage).unwrap_or(std::cmp::Ordering::Equal));
+        processes.truncate(15);
+        Ok(processes)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+fn kill_process(pid: u32) -> Result<String, String> {
+    let mut sys = System::new();
+    sys.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
+
+    if let Some(process) = sys.process(sysinfo::Pid::from_u32(pid)) {
+        // Safety: only allow killing user processes (not system-critical)
+        let name = process.name().to_string_lossy().to_string();
+        let lower = name.to_lowercase();
+        if lower == "systemd" || lower == "init" || pid <= 2 {
+            return Err("拒绝杀死系统关键进程".to_string());
+        }
+        if process.kill() {
+            Ok(format!("已杀死进程 {} (PID: {})", name, pid))
+        } else {
+            Err(format!("无法杀死进程 {} (PID: {})", name, pid))
+        }
+    } else {
+        Err(format!("找不到 PID 为 {} 的进程", pid))
+    }
+}
+
+#[tauri::command]
+fn read_config(app_handle: tauri::AppHandle) -> Result<serde_json::Value, String> {
+    let path = app_handle.path().app_data_dir().unwrap_or_default().join("config.json");
+    if let Ok(content) = std::fs::read_to_string(path) {
+        serde_json::from_str(&content).map_err(|e| e.to_string())
+    } else {
+        Ok(serde_json::json!({}))
+    }
+}
+
+#[tauri::command]
+fn write_config(app_handle: tauri::AppHandle, config: serde_json::Value) -> Result<(), String> {
+    let path = app_handle.path().app_data_dir().unwrap_or_default().join("config.json");
+    if let Some(parent) = path.parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    std::fs::write(&path, serde_json::to_string_pretty(&config).unwrap())
+        .map_err(|e| e.to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Fix GBM EGL display initialization error on Linux
+    #[cfg(target_os = "linux")]
+    std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
-            save_layout, load_layout, widget_read_file, widget_write_file, open_url, fetch_proxy, check_and_cache_video
+            save_layout, load_layout, widget_read_file, widget_write_file, open_url, fetch_proxy, check_and_cache_video,
+            list_available_widgets, get_top_processes, kill_process, read_config, write_config
         ])
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
@@ -136,13 +267,19 @@ pub fn run() {
             let app_handle = app.handle().clone();
             std::thread::spawn(move || {
                 let mut sys = System::new_all();
+                let mut networks = Networks::new_with_refreshed_list();
                 sys.refresh_all();
                 // 启动时稍作延迟，确保 CPU 测算有基准数据
                 std::thread::sleep(Duration::from_millis(500));
 
+                let mut prev_bytes_in: u64 = 0;
+                let mut prev_bytes_out: u64 = 0;
+                let mut first_run = true;
+
                 loop {
                     sys.refresh_cpu_usage();
                     sys.refresh_memory();
+                    networks.refresh(true);
 
                     let cpu_usage = sys.global_cpu_usage();
                     let total_mem = sys.total_memory();
@@ -153,14 +290,29 @@ pub fn run() {
                         0.0
                     };
 
+                    // 计算网络速率（差值）
+                    let mut total_in: u64 = 0;
+                    let mut total_out: u64 = 0;
+                    for (_name, data) in &networks {
+                        total_in += data.total_received();
+                        total_out += data.total_transmitted();
+                    }
+                    let net_bytes_in = if first_run { 0 } else { total_in.saturating_sub(prev_bytes_in) };
+                    let net_bytes_out = if first_run { 0 } else { total_out.saturating_sub(prev_bytes_out) };
+                    prev_bytes_in = total_in;
+                    prev_bytes_out = total_out;
+                    first_run = false;
+
                     let payload = SysInfoPayload {
                         cpu_usage,
                         mem_usage,
+                        net_bytes_in,
+                        net_bytes_out,
                     };
 
-                    // 广播给前端
+                    // 广播给前端（2秒间隔，避免频繁 emit 导致 UI 卡顿）
                     let _ = app_handle.emit("sysinfo_update", payload);
-                    std::thread::sleep(Duration::from_secs(1));
+                    std::thread::sleep(Duration::from_secs(2));
                 }
             });
 
